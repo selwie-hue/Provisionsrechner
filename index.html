@@ -1,0 +1,385 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Provision">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2f6b4f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Provisionsrechner</title>
+<style>
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+#lock{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-content:center;gap:14px;text-align:center;padding:24px}
+#lock input{font-size:1.6rem;text-align:center;letter-spacing:.4em;max-width:200px;margin:0 auto}
+#printarea{display:none}
+@media print{body>*:not(#printarea){display:none!important}#printarea{display:block!important;color:#111;background:#fff}#printarea .noprint{display:none}}
+#printarea.show{display:block;position:fixed;inset:0;z-index:40;overflow:auto;background:#fff;color:#111;padding:max(16px,env(safe-area-inset-top,0px)) 16px 40px}
+
+/* Layout: ein schmales Arbeitsblatt – Eingabe oben, Positionen als Liste, Total pro Mitarbeiter unten */
+:root{
+  --bg:#f5f6f4; --surface:#ffffff; --fg:#1d2420; --muted:#5d6862; --line:#d9dfdb;
+  --accent:#2f6b4f; --accent-soft:#e3efe8; --warn:#b3261e;
+  --display:-apple-system,system-ui,sans-serif; --body:-apple-system,system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917; --surface:#1d2421; --fg:#e7ece9; --muted:#9aa6a0; --line:#323c37;
+  --accent:#7cc4a0; --accent-soft:#22352c; --warn:#f2b8b5; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --surface:#1d2421; --fg:#e7ece9; --muted:#9aa6a0; --line:#323c37;
+  --accent:#7cc4a0; --accent-soft:#22352c; --warn:#f2b8b5; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
+.wrap>*{min-width:0}
+h1{font-family:var(--display);font-size:1.9rem;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-size:1.15rem;margin:0 0 12px}
+.sub{color:var(--muted);margin:4px 0 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+label{display:grid;gap:4px;font-size:.78rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+input,select{font:inherit;font-size:.95rem;text-transform:none;letter-spacing:0;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-width:0;width:100%;box-sizing:border-box}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ma{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:12px}
+.preview{margin-top:14px;padding:12px 14px;background:var(--accent-soft);border-radius:8px;display:flex;flex-wrap:wrap;gap:6px 22px;font-variant-numeric:tabular-nums}
+.preview b{font-weight:600}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}
+button{font:inherit;font-weight:600;border-radius:7px;padding:9px 16px;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:var(--surface)}
+button.ghost{background:transparent;color:var(--accent)}
+button.del{background:transparent;border:none;color:var(--warn);padding:4px 8px;font-weight:500}
+.msg{color:var(--warn);font-size:.9rem}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.92rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+td.n,th.n{text-align:right}
+tfoot td{font-weight:600;border-bottom:none}
+.who{white-space:normal;min-width:180px}
+.chip{display:inline-block;background:var(--accent-soft);color:var(--fg);border-radius:99px;padding:1px 9px;margin:1px 4px 1px 0;font-size:.82rem}
+.ex{font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:6px}
+details summary{cursor:pointer;font-weight:600;color:var(--accent)}
+.rates{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-top:12px}
+.rate{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center}
+.note{color:var(--muted);font-size:.85rem;margin:0}
+.scan{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:16px;padding-bottom:16px;border-bottom:1px dashed var(--line)}
+.scan .note{flex:1 1 260px;min-width:0}
+.scanbtn{display:inline-block;cursor:pointer;font-size:.95rem;text-transform:none;letter-spacing:0;font-weight:600;color:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:9px 16px}
+.scanbtn:focus-within,.scanbtn:hover{background:var(--accent-soft)}
+.scanbtn.busy{opacity:.6;pointer-events:none}
+#scanitems{flex-basis:100%;margin-top:0}
+.chk{align-content:start}.chk input{width:22px;height:22px;margin:6px 0 0}
+.st{border-radius:99px;padding:3px 10px;font-size:.8rem;font-weight:600;border:1px solid var(--line);background:transparent;color:var(--muted)}
+.st.ok{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.st.late{border-color:var(--warn);color:var(--warn)}
+.late-d{color:var(--warn);font-weight:600}
+button.pr{padding:4px 10px;font-size:.82rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head><body>
+
+<div id="lock"><h1>Provisionsrechner</h1><p class="note">Bitte PIN eingeben</p><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="PIN"><span class="msg" id="pinerr"></span></div>
+<div id="printarea"></div>
+<div class="wrap">
+  <header>
+    <h1>Provisionsrechner</h1>
+    <p class="sub">Produkt wählen oder neu eintippen, Provisionssatz frei anpassen, Bruttopreis in CHF eingeben. Die MwSt des Landes wird abgezogen, die Provision gleichmässig auf alle beteiligten Mitarbeiter verteilt.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="h-neu">
+    <h2 id="h-neu">Neue Position</h2>
+    <div class="scan" id="scan">
+      <label class="scanbtn" for="scanfile">Kopie scannen (Foto)</label>
+      <input id="scanfile" type="file" accept="image/*" capture="environment" hidden>
+      <span class="note" id="scanmsg">Foto vom Kaufvertrag oder der Auftragskopie aufnehmen. Die Felder werden automatisch ausgefüllt, du prüfst sie und klickst auf „Hinzufügen“.</span>
+      <div class="row" id="scanitems" hidden></div>
+    </div>
+    <form id="f" autocomplete="off">
+      <div class="grid">
+        <label>Kunde<input id="kunde" required placeholder="z.B. Mustername"></label>
+        <label>Messe / Ort<input id="messe" list="messe-list" placeholder="z.B. OLMA St. Gallen"></label>
+        <label>Produkt / Lieferant<input id="lief" list="lief-list" placeholder="auswählen oder neu eintippen"></label>
+        <label>Provision %<input id="ps" type="number" step="0.5" min="0" max="100" placeholder="z.B. 25"></label>
+        <label>Land<select id="land"></select></label>
+        <label>Bruttopreis CHF<input id="brutto" type="number" step="0.05" min="0" required placeholder="2498"></label>
+        <label>Auftragsdatum<input id="datum" type="date"></label>
+        <label>Zahlung fällig am<input id="faellig" type="date"></label>
+        <label class="chk"><span>Kunde hat bezahlt</span><input id="paid" type="checkbox"></label>
+      </div>
+      <div class="ma">
+        <label>Mitarbeiter 1<input id="ma1" list="ma-list" required></label>
+        <label>Mitarbeiter 2<input id="ma2" list="ma-list"></label>
+        <label>Mitarbeiter 3<input id="ma3" list="ma-list"></label>
+        <label>Mitarbeiter 4<input id="ma4" list="ma-list"></label>
+      </div>
+      <datalist id="ma-list"></datalist><datalist id="messe-list"></datalist><datalist id="lief-list"></datalist>
+      <div class="preview" id="preview" aria-live="polite"></div>
+      <div class="row">
+        <button type="submit">Position hinzufügen</button>
+        <span class="msg" id="err"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="h-pos">
+    <h2 id="h-pos">Positionen</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>Nr.</th><th>Datum</th><th>Kunde</th><th>Messe / Ort</th><th>Lieferant</th><th>Land</th><th class="n">Brutto</th><th class="n">MwSt</th><th class="n">Netto</th><th class="n">Satz</th><th class="n">Provision</th><th>Mitarbeiter (je)</th><th>Fällig</th><th>Status</th><th></th></tr></thead>
+      <tbody id="tb"></tbody>
+      <tfoot id="tf"></tfoot>
+    </table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-ma">
+    <h2 id="h-ma">Total pro Mitarbeiter</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>Mitarbeiter</th><th class="n">Anzahl Verkäufe</th><th class="n">Frei (bezahlt)</th><th class="n">Noch offen</th><th class="n">Total</th><th></th></tr></thead>
+      <tbody id="tbm"></tbody>
+    </table></div>
+    <div class="row">
+      <button type="button" id="copy">Abrechnung kopieren</button>
+      <button type="button" class="ghost" id="reset">Alle Positionen löschen</button>
+      <span class="note" id="copymsg"></span>
+    </div>
+    <p class="note" id="prnote">„Zum Drucken“ zeigt die Abrechnung eines Mitarbeiters an. Dort auf „Drucken“ tippen, dann kannst du drucken oder als PDF teilen.</p>
+    <div hidden>
+    </div>
+    <pre id="copytxt" hidden></pre>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>Sätze bearbeiten (MwSt pro Land, Provision pro Lieferant)</summary>
+      <p class="note" style="margin-top:10px">MwSt-Normalsätze Stand November 2026. Bitte anpassen, falls sich ein Satz ändert.</p>
+      <div class="rates" id="rl"></div>
+      <div class="row"><input id="nl-name" placeholder="Neues Land" style="max-width:180px"><input id="nl-rate" type="number" step="0.1" placeholder="MwSt %" style="max-width:110px"><button type="button" class="ghost" id="nl-add">Land hinzufügen</button></div>
+      <div class="rates" id="rv" style="margin-top:18px"></div>
+      <div class="row"><input id="nv-name" placeholder="Neuer Lieferant" style="max-width:180px"><input id="nv-rate" type="number" step="0.5" placeholder="Provision %" style="max-width:110px"><button type="button" class="ghost" id="nv-add">Lieferant hinzufügen</button></div>
+    </details>
+    <p class="note" style="margin-top:12px">Die Daten bleiben nur auf diesem Gerät gespeichert. Mit „Abrechnung kopieren“ kannst du sie in eine E-Mail oder ein Dokument einfügen.</p>
+  </section>
+</div>
+
+<script>
+const KEY="provisionsrechner-v4";
+const DEF={
+  laender:{"Schweiz":8.1,"Liechtenstein":8.1,"Deutschland":19,"Österreich":20,"Frankreich":20,"Italien":22},
+  lieferanten:{"Anna Matratzen":25,"BBQ":10,"Whirlpool":5},
+  mitarbeiter:["Charlotte","Frede","Michel","George"],
+  pos:[
+    {d:"2026-11-03",f:"2026-11-10",paid:true,k:"Mustername",m:"Messe Muster",t:"Tisch 1",l:"Anna Matratzen",land:"Schweiz",b:2498,ps:25,ma:["Michel","Charlotte"],ex:true},
+    {d:"2026-11-07",f:"2026-12-07",paid:false,k:"Mustername",m:"Messe Muster",t:"Tisch 2",l:"Anna Matratzen",land:"Schweiz",b:2498,ps:25,ma:["Michel","Charlotte","Frede"],ex:true},
+    {d:"2026-11-08",f:"2026-11-09",paid:false,k:"Kunde Deutschland",m:"Messe Muster",t:"Tisch 3",l:"Anna Matratzen",land:"Deutschland",b:2498,ps:25,ma:["Charlotte","Frede","Michel","George"],ex:true},
+    {d:"2026-11-10",f:"2026-11-10",paid:true,k:"Mustername",m:"Messe Muster",t:"Tisch 1",l:"BBQ",land:"Schweiz",b:1290,ps:10,ma:["George"],ex:true},
+    {d:"2026-11-11",f:"2026-12-15",paid:false,k:"Mustername",m:"Messe Muster",t:"Tisch 2",l:"Whirlpool",land:"Schweiz",b:8900,ps:5,ma:["Michel","Frede"],ex:true}
+  ]
+};
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.laender)S=JSON.parse(JSON.stringify(DEF));
+if(!S.mitarbeiter){
+  S.mitarbeiter=DEF.mitarbeiter.slice();
+  const mapN={Sara:"Kapitan",Luca:"Sourli",Nina:"George"};
+  S.pos.forEach(p=>{ if(p.ex) p.ma=p.ma.map(m=>mapN[m]||m); });
+}
+if(S.mv!==2){
+  const fix={Kapitan:"Charlotte",Sourli:"Frede"};
+  S.mitarbeiter=[...new Set(S.mitarbeiter.map(m=>fix[m]||m))];
+  S.pos.forEach(p=>{ p.ma=p.ma.map(m=>fix[m]||m); });
+  S.mv=2; try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+const r2=x=>Math.round((x+Number.EPSILON)*100)/100;
+const chf=x=>x.toLocaleString("de-CH",{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fd=x=>x?new Date(x+"T00:00").toLocaleDateString("de-CH"):"";
+function calc(p){
+  const mw=S.laender[p.land]??0, ps=p.ps??S.lieferanten[p.l]??0;
+  const netto=r2(p.b/(1+mw/100)), prov=r2(netto*ps/100), je=r2(prov/p.ma.length);
+  return {mw,ps,netto,prov,je};
+}
+function fillSelects(){
+  const opt=(o,sel)=>Object.keys(o).map(n=>`<option${n===sel?" selected":""}>${esc(n)}</option>`).join("");
+  const c=$("land").value||"Schweiz";
+  $("lief-list").innerHTML=Object.entries(S.lieferanten).map(([n,v])=>`<option value="${esc(n)}" label="${v}%">`).join(""); $("land").innerHTML=opt(S.laender,c);
+  const names=[...new Set([...S.mitarbeiter,...S.pos.flatMap(p=>p.ma)])];
+  $("ma-list").innerHTML=names.map(n=>`<option value="${esc(n)}">`).join("");
+  $("messe-list").innerHTML=[...new Set(S.pos.map(p=>p.m).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join("");
+}
+function formPos(){
+  const ps=parseFloat($("ps").value);
+  return {d:$("datum").value,f:$("faellig").value,paid:$("paid").checked,k:$("kunde").value.trim(),m:$("messe").value.trim(),l:$("lief").value.trim(),land:$("land").value,b:parseFloat($("brutto").value),ps:isNaN(ps)?0:ps,
+    ma:["ma1","ma2","ma3","ma4"].map(i=>$(i).value.trim()).filter(Boolean)};
+}
+function preview(){
+  const p=formPos();
+  if(!(p.b>0)){ $("preview").innerHTML=`<span>Bruttopreis eingeben, dann siehst du hier die Rechnung.</span>`; return;}
+  const c=calc({...p,ma:p.ma.length?p.ma:["x"]});
+  const n=p.ma.length||1;
+  $("preview").innerHTML=`<span>Netto (−${c.mw}% MwSt): <b>${chf(c.netto)}</b></span><span>Provision ${c.ps}%: <b>${chf(c.prov)}</b></span><span>${n} Mitarbeiter, je <b>${chf(c.je)} CHF</b></span>`;
+}
+function render(){
+  fillSelects();
+  let tb="",tB=0,tN=0,tP=0; const per={}; const today=new Date().toISOString().slice(0,10);
+  S.pos.forEach((p,i)=>{
+    const c=calc(p); tB+=p.b; tN+=c.netto; tP+=c.prov;
+    p.ma.forEach(m=>{per[m]=per[m]||{n:0,s:0,frei:0,offen:0}; per[m].n++; per[m].s+=c.je; if(p.paid)per[m].frei+=c.je; else per[m].offen+=c.je;});
+    const dt=fd(p.d), late=!p.paid&&p.f&&p.f<today;
+    const st=p.paid?`<button class="st ok" data-p="${i}" aria-label="Als offen markieren">Bezahlt · frei</button>`:`<button class="st${late?" late":""}" data-p="${i}" aria-label="Als bezahlt markieren">${late?"Überfällig":"Offen"}</button>`;
+    tb+=`<tr><td>${i+1}</td><td>${dt}</td><td>${esc(p.k)}${p.ex?'<span class="ex">Beispiel</span>':""}</td><td>${esc(p.m||"")}</td><td>${esc(p.l)}</td><td>${esc(p.land)}</td>
+      <td class="n">${chf(p.b)}</td><td class="n">${c.mw}%</td><td class="n">${chf(c.netto)}</td><td class="n">${c.ps}%</td><td class="n">${chf(c.prov)}</td>
+      <td class="who">${p.ma.map(m=>`<span class="chip">${esc(m)}</span>`).join("")}<br><small>${p.ma.length} × ${chf(c.je)}</small></td>
+      <td class="${late?"late-d":""}">${fd(p.f)}</td><td>${st}</td>
+      <td><button class="del" data-i="${i}" aria-label="Position ${i+1} löschen">Löschen</button></td></tr>`;
+  });
+  $("tb").innerHTML=tb||`<tr><td colspan="15" class="note">Noch keine Positionen. Oben die erste erfassen.</td></tr>`;
+  $("tf").innerHTML=S.pos.length?`<tr><td colspan="6">Total</td><td class="n">${chf(tB)}</td><td></td><td class="n">${chf(r2(tN))}</td><td></td><td class="n">${chf(r2(tP))}</td><td colspan="4"></td></tr>`:"";
+  const names=Object.keys(per).sort();
+  const sum=k=>chf(r2(names.reduce((a,m)=>a+per[m][k],0)));
+  $("tbm").innerHTML=names.map(m=>`<tr><td>${esc(m)}</td><td class="n">${per[m].n}</td><td class="n"><b>${chf(r2(per[m].frei))}</b></td><td class="n">${chf(r2(per[m].offen))}</td><td class="n">${chf(r2(per[m].s))}</td><td><button type="button" class="ghost pr" data-ma="${esc(m)}">Zum Drucken</button></td></tr>`).join("")
+    +(names.length?`<tr><td><b>Total</b></td><td></td><td class="n"><b>${sum("frei")}</b></td><td class="n"><b>${sum("offen")}</b></td><td class="n"><b>${sum("s")}</b></td><td><button type="button" class="ghost pr" data-ma="">Alle drucken</button></td></tr>`:"");
+  const rateRow=(grp,n,v,suffix)=>`<div class="rate"><span>${esc(n)}</span><input type="number" step="0.1" value="${v}" data-g="${grp}" data-n="${esc(n)}" aria-label="${esc(n)} ${suffix}"></div>`;
+  $("rl").innerHTML="<strong>MwSt %</strong><span></span>"+Object.entries(S.laender).map(([n,v])=>rateRow("laender",n,v,"MwSt in Prozent")).join("");
+  $("rv").innerHTML="<strong>Provision %</strong><span></span>"+Object.entries(S.lieferanten).map(([n,v])=>rateRow("lieferanten",n,v,"Provision in Prozent")).join("");
+  preview();
+}
+function syncPs(){const v=S.lieferanten[$("lief").value.trim()]; if(v!=null) $("ps").value=v;}
+$("lief").addEventListener("input",()=>{syncPs();preview();});
+$("f").addEventListener("input",preview);
+$("f").addEventListener("submit",e=>{
+  e.preventDefault(); const p=formPos();
+  if(!p.k||!(p.b>0)||!p.ma.length){$("err").textContent="Bitte Kunde, Bruttopreis und mindestens einen Mitarbeiter eingeben.";return;}
+  if(!p.l){$("err").textContent="Bitte ein Produkt oder einen Lieferanten eingeben.";return;}
+  if(!(p.ps>0)){$("err").textContent="Bitte einen Provisionssatz eingeben.";return;}
+  if(S.lieferanten[p.l]==null) S.lieferanten[p.l]=p.ps;
+  p.ma.forEach(m=>{ if(!S.mitarbeiter.includes(m)) S.mitarbeiter.push(m); });
+  $("err").textContent=""; S.pos.push(p); save();
+  ["brutto"].forEach(i=>$(i).value=""); render(); nextScanItem(); $("brutto").focus();
+});
+$("tb").addEventListener("click",e=>{const s=e.target.closest(".st"); if(s){const p=S.pos[+s.dataset.p]; p.paid=!p.paid; save(); render(); return;} const b=e.target.closest(".del"); if(!b)return; S.pos.splice(+b.dataset.i,1); save(); render();});
+let armed=false;
+$("reset").addEventListener("click",()=>{
+  if(!armed){armed=true;$("reset").textContent="Wirklich alle löschen?";setTimeout(()=>{armed=false;$("reset").textContent="Alle Positionen löschen"},4000);return;}
+  armed=false; S.pos=[]; save(); $("reset").textContent="Alle Positionen löschen"; render();
+});
+document.addEventListener("change",e=>{
+  const t=e.target; if(!t.dataset||!t.dataset.g)return;
+  const v=parseFloat(t.value); if(isNaN(v))return; S[t.dataset.g][t.dataset.n]=v; save(); render();
+});
+function addRate(grp,ni,ri){const n=$(ni).value.trim(),v=parseFloat($(ri).value); if(!n||isNaN(v))return; S[grp][n]=v; $(ni).value="";$(ri).value=""; save(); render();}
+$("nl-add").addEventListener("click",()=>addRate("laender","nl-name","nl-rate"));
+$("nv-add").addEventListener("click",()=>addRate("lieferanten","nv-name","nv-rate"));
+$("copy").addEventListener("click",()=>{
+  let t="Provisionsabrechnung\n\n";
+  const per={},off={};
+  S.pos.forEach((p,i)=>{const c=calc(p); p.ma.forEach(m=>{per[m]=(per[m]||0)+(p.paid?c.je:0); off[m]=(off[m]||0)+(p.paid?0:c.je);});
+    t+=`${i+1}. ${p.k}${p.m?" – "+p.m:""} – ${p.l} (${p.land}): Brutto ${chf(p.b)} / Netto ${chf(c.netto)} / Provision ${c.ps}% = ${chf(c.prov)} CHF → ${p.ma.join(", ")} je ${chf(c.je)} – ${p.paid?"bezahlt, frei":"offen"+(p.f?", fällig "+fd(p.f):"")}\n`;});
+  t+="\nProvision pro Mitarbeiter (frei / noch offen):\n"+Object.keys(per).sort().map(m=>`${m}: ${chf(r2(per[m]))} CHF frei / ${chf(r2(off[m]))} CHF offen`).join("\n");
+  const done=()=>{$("copymsg").textContent="Kopiert."};
+  const fallback=()=>{const pre=$("copytxt");pre.hidden=false;pre.textContent=t;const r=document.createRange();r.selectNodeContents(pre);const s=getSelection();s.removeAllRanges();s.addRange(r);$("copymsg").textContent="Text markiert, bitte mit Strg+C kopieren.";};
+  try{navigator.clipboard.writeText(t).then(done).catch(fallback);}catch(e){fallback();}
+});
+$("datum").value=new Date().toISOString().slice(0,10);
+$("lief").value="Anna Matratzen";
+render(); syncPs(); preview();
+
+/* Drucken: Abrechnung als HTML-Datei speichern */
+function printDoc(who){
+  const list=S.pos.filter(p=>!who||p.ma.includes(who));
+  let fr=0,of=0;
+  const rows=list.map((p,i)=>{const c=calc(p); const amt=who?c.je:c.prov; if(p.paid)fr+=amt; else of+=amt;
+    return `<tr><td>${i+1}</td><td>${fd(p.d)}</td><td>${esc(p.k)}</td><td>${esc(p.m||"")}</td><td>${esc(p.l)}</td><td class=n>${chf(p.b)}</td><td class=n>${chf(c.netto)}</td><td class=n>${c.ps}%</td><td class=n>${chf(c.prov)}</td><td>${p.ma.length}</td><td class=n><b>${chf(amt)}</b></td><td>${p.paid?"bezahlt · frei":"offen"+(p.f?" (fällig "+fd(p.f)+")":"")}</td></tr>`;}).join("");
+  const title=who?`Provisionsabrechnung ${who}`:"Provisionsabrechnung (alle)";
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font:12px/1.45 Arial,sans-serif;color:#111;margin:24px}h1{font-size:20px;margin:0 0 4px}p{margin:0 0 14px;color:#444}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:5px 6px;text-align:left}th{font-size:10px;text-transform:uppercase;color:#555}.n{text-align:right}.sum{margin-top:18px;width:auto}.sum td{border:none;padding:3px 12px 3px 0;font-size:13px}.sig{margin-top:48px;display:flex;gap:60px}.sig div{border-top:1px solid #333;padding-top:4px;width:220px}@page{size:A4 landscape;margin:12mm}</style></head><body><h1>${esc(title)}</h1><p>Erstellt am ${new Date().toLocaleDateString("de-CH")}. Beträge in CHF. Provision wird erst nach Zahlung des Kunden frei.</p><table><thead><tr><th>Nr.</th><th>Datum</th><th>Kunde</th><th>Messe / Ort</th><th>Lieferant</th><th class=n>Brutto</th><th class=n>Netto</th><th class=n>Satz</th><th class=n>Provision</th><th>MA</th><th class=n>${who?"Anteil":"Betrag"}</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><table class="sum"><tr><td>Frei (bezahlt)</td><td class=n><b>${chf(r2(fr))}</b></td></tr><tr><td>Noch offen</td><td class=n>${chf(r2(of))}</td></tr><tr><td>Total</td><td class=n>${chf(r2(fr+of))}</td></tr></table><div class="sig"><div>Datum, Unterschrift Arbeitgeber</div><div>Datum, Unterschrift ${who?esc(who):"Mitarbeiter"}</div></div></body></html>`;
+}
+$("tbm").addEventListener("click",e=>{
+  const b=e.target.closest(".pr"); if(!b) return;
+  const html=printDoc(b.dataset.ma);
+  const body=html.slice(html.indexOf("<body>")+6,html.indexOf("</body>"));
+  const css=html.slice(html.indexOf("<style>")+7,html.indexOf("</style>")).replace(/body\{[^}]*\}/,"#printarea .pd{font:12px/1.45 Arial,sans-serif;color:#111}");
+  const pa=$("printarea");
+  pa.innerHTML=`<style>${css}</style><div class="noprint" style="display:flex;gap:10px;margin-bottom:16px"><button type="button" id="pa-print">Drucken</button><button type="button" class="ghost" id="pa-close" style="color:#2f6b4f">Schliessen</button></div><div class="pd">`+body.replace("<table>","<div style=\"overflow-x:auto\"><table>").replace("</table><table class","</table></div><table class")+"</div>";
+  pa.classList.add("show"); window.scrollTo(0,0);
+  $("pa-print").onclick=()=>window.print();
+  $("pa-close").onclick=()=>{pa.classList.remove("show");pa.innerHTML="";};
+});
+
+/* Scannen: Foto an Claude schicken, Felder vorausfüllen */
+let sample=null, scanQueue=[];
+(async()=>{
+  try{ sample=await window.claude?.use?.("sample"); }catch(e){ sample=null; }
+  let caps=null; if(sample){ try{caps=await sample.limits();}catch(e){} }
+  if(!caps?.images){ $("scan").hidden=true; return; }
+  if(caps.images.mediaTypes) $("scanfile").accept=caps.images.mediaTypes.join(",");
+})();
+if(!window.claude?.use) $("scan").hidden=true;
+function setVal(id,v){ if(v!=null&&v!=="") $(id).value=v; }
+function applyItem(base,it){
+  setVal("kunde",base.kunde); setVal("messe",base.messe); setVal("datum",base.datum); setVal("faellig",base.faellig);
+  if(base.land&&S.laender[base.land]!=null) $("land").value=base.land;
+  (base.mitarbeiter||[]).slice(0,4).forEach((m,i)=>setVal("ma"+(i+1),m));
+  if(it){
+    const pr=it.lieferant||it.artikel; if(pr){ $("lief").value=pr; syncPs(); }
+    if(it.provision_prozent>0) $("ps").value=it.provision_prozent;
+    if(it.brutto>0) $("brutto").value=it.brutto;
+  }
+  preview();
+}
+function showQueue(base){
+  const box=$("scanitems");
+  if(scanQueue.length<=1){ box.hidden=true; box.innerHTML=""; return; }
+  box.hidden=false;
+  box.innerHTML="<span class='note'>Gefundene Artikel:</span>"+scanQueue.map((it,i)=>`<button type="button" class="ghost" data-q="${i}">${esc(it.artikel||it.lieferant||"Artikel")} · ${chf(+it.brutto||0)}</button>`).join("");
+  box.onclick=e=>{const b=e.target.closest("[data-q]"); if(b) applyItem(base,scanQueue[+b.dataset.q]);};
+}
+let scanBase=null;
+function nextScanItem(){
+  if(!scanBase||!scanQueue.length) return;
+  scanQueue.shift();
+  if(scanQueue.length){ applyItem(scanBase,scanQueue[0]); showQueue(scanBase); $("scanmsg").textContent=`Noch ${scanQueue.length} Artikel aus dem Scan. Prüfen und hinzufügen.`; }
+  else { scanBase=null; showQueue({}); $("scanmsg").textContent="Alle gescannten Artikel sind erfasst."; }
+}
+$("scanfile").addEventListener("change",async e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f||!sample) return;
+  const btn=document.querySelector(".scanbtn"); btn.classList.add("busy"); $("scanmsg").textContent="Kopie wird gelesen …";
+  const prompt=`Das Bild ist ein Foto eines Kaufvertrags, Auftrags oder einer Rechnungskopie (Schweiz, Messeverkauf).
+Lies die Angaben heraus und antworte NUR mit JSON in dieser Form:
+{"kunde":string,"messe":string,"datum":"YYYY-MM-DD","faellig":"YYYY-MM-DD","land":string,"mitarbeiter":[string],"artikel":[{"artikel":string,"lieferant":string,"brutto":number,"provision_prozent":number}]}
+Regeln:
+- datum: Auftragsdatum. faellig: Datum, an dem der Kunde bezahlen muss (Zahlungsfrist oder Fälligkeit), sonst leer.
+- kunde: Name des Kunden. messe: Messe oder Ort des Verkaufs.
+- land: Land des Kunden bzw. Verkaufs, eines von: ${Object.keys(S.laender).join(", ")}. Wenn unklar: "Schweiz".
+- mitarbeiter: Namen der Verkäufer/Berater, falls vermerkt (max. 4).
+- artikel: jede verkaufte Position mit Bruttopreis in CHF (inkl. MwSt, nach Rabatt) als Zahl.
+- lieferant: wähle den passenden Namen aus dieser Liste, sonst den Produktnamen: ${Object.keys(S.lieferanten).join(", ")}. Matratzen von Anna = "Anna Matratzen". Grills/BBQ-Artikel = "BBQ". Whirlpools = "Whirlpool".
+- provision_prozent: nur wenn es auf der Kopie steht, sonst 0.
+- Unlesbare Felder als leerer Text bzw. 0.`;
+  try{
+    const r=await sample.json(prompt,{images:[f],modelTier:"default"});
+    scanBase=r||{}; scanQueue=Array.isArray(r?.artikel)?r.artikel.filter(a=>a&&(a.brutto>0||a.artikel)):[];
+    applyItem(scanBase,scanQueue[0]); showQueue(scanBase);
+    $("scanmsg").textContent=scanQueue.length>1?`${scanQueue.length} Artikel gefunden. Felder prüfen, dann „Position hinzufügen“, der nächste Artikel folgt automatisch.`:"Felder ausgefüllt. Bitte prüfen und „Position hinzufügen“ klicken.";
+  }catch(err){
+    const c=err&&err.code;
+    $("scanmsg").textContent=c==="not_granted"?"Scannen ist nicht erlaubt worden. Du kannst die Felder von Hand ausfüllen.":c==="rate_limited"?"Gerade zu viele Anfragen. Bitte in einer Minute nochmals versuchen.":c==="image_rejected"?"Dieses Bildformat geht nicht. Bitte ein JPG- oder PNG-Foto verwenden.":"Die Kopie konnte nicht gelesen werden. Bitte ein schärferes Foto versuchen oder von Hand ausfüllen.";
+  }finally{ btn.classList.remove("busy"); e.target.value=""; }
+});
+
+/* PIN */
+(async()=>{
+  const H="a81824dad073f33ca3e41d3b99d0fdb62a5c04435a5e338af7e7130026208d5a";
+  let ok=false; try{ok=sessionStorage.getItem("pv-ok")==="1"}catch(e){}
+  if(ok){$("lock").hidden=true;return;}
+  const inp=$("pin"); setTimeout(()=>inp.focus(),100);
+  inp.addEventListener("input",async()=>{
+    if(inp.value.length<4) return;
+    const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(inp.value));
+    const h=[...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,"0")).join("");
+    if(h===H){ try{sessionStorage.setItem("pv-ok","1")}catch(e){} $("lock").hidden=true; }
+    else if(inp.value.length>=4){ $("pinerr").textContent="PIN falsch"; inp.value=""; }
+  });
+})();
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+</script>
+</body></html>
