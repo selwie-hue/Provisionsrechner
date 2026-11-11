@@ -57,6 +57,7 @@ td.n,th.n{text-align:right}
 tfoot td{font-weight:600;border-bottom:none}
 .who{white-space:normal;min-width:180px}
 .chip{display:inline-block;background:var(--accent-soft);color:var(--fg);border-radius:99px;padding:1px 9px;margin:1px 4px 1px 0;font-size:.82rem}
+.chk2{font-size:.72rem;font-weight:600;color:var(--warn);border:1px solid var(--warn);border-radius:99px;padding:1px 8px;margin-left:6px;background:transparent}
 .ex{font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:6px}
 details summary{cursor:pointer;font-weight:600;color:var(--accent)}
 .rates{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-top:12px}
@@ -90,7 +91,7 @@ button.pr{padding:4px 10px;font-size:.82rem}
     <h2 id="h-neu">Neue Position</h2>
     <div class="scan" id="scan">
       <label class="scanbtn" for="scanfile">Kopie scannen (Foto)</label>
-      <input id="scanfile" type="file" accept="image/*" capture="environment" hidden>
+      <input id="scanfile" type="file" accept="image/*" multiple hidden>
       <span class="note" id="scanmsg">Foto vom Kaufvertrag oder der Auftragskopie aufnehmen. Die Felder werden automatisch ausgefüllt, du prüfst sie und klickst auf „Hinzufügen“.</span>
       <div class="row" id="scanitems" hidden></div>
     </div>
@@ -227,7 +228,7 @@ function render(){
     p.ma.forEach(m=>{per[m]=per[m]||{n:0,s:0,frei:0,offen:0}; per[m].n++; per[m].s+=c.je; if(p.paid)per[m].frei+=c.je; else per[m].offen+=c.je;});
     const dt=fd(p.d), late=!p.paid&&p.f&&p.f<today;
     const st=p.paid?`<button class="st ok" data-p="${i}" aria-label="Als offen markieren">Bezahlt · frei</button>`:`<button class="st${late?" late":""}" data-p="${i}" aria-label="Als bezahlt markieren">${late?"Überfällig":"Offen"}</button>`;
-    tb+=`<tr><td>${i+1}</td><td>${dt}</td><td>${esc(p.k)}${p.ex?'<span class="ex">Beispiel</span>':""}${p.img?`<button type="button" class="ph del" data-i="${i}" style="color:var(--accent)">Foto</button>`:""}</td><td>${esc(p.m||"")}</td><td>${esc(p.l)}</td><td>${esc(p.land)}</td>
+    tb+=`<tr><td>${i+1}</td><td>${dt}</td><td>${esc(p.k)}${p.ex?'<span class="ex">Beispiel</span>':""}${p.check?`<button type="button" class="chk2" data-i="${i}">prüfen</button>`:""}${p.img?`<button type="button" class="ph del" data-i="${i}" style="color:var(--accent)">Foto</button>`:""}</td><td>${esc(p.m||"")}</td><td>${esc(p.l)}</td><td>${esc(p.land)}</td>
       <td class="n">${chf(p.b)}</td><td class="n">${c.mw}%</td><td class="n">${chf(c.netto)}</td><td class="n">${c.ps}%</td><td class="n">${chf(c.prov)}</td>
       <td class="who">${p.ma.map(m=>`<span class="chip">${esc(m)}</span>`).join("")}<br><small>${p.ma.length} × ${chf(c.je)}</small></td>
       <td class="${late?"late-d":""}">${fd(p.f)}</td><td>${st}</td>
@@ -254,7 +255,7 @@ $("f").addEventListener("submit",e=>{
   if(!(p.ps>0)){$("err").textContent="Bitte einen Provisionssatz eingeben.";return;}
   if(S.lieferanten[p.l]==null) S.lieferanten[p.l]=p.ps;
   p.ma.forEach(m=>{ if(!S.mitarbeiter.includes(m)) S.mitarbeiter.push(m); });
-  $("err").textContent=""; if(ocrImg) p.img=ocrImg; S.pos.push(p); if(!save()&&p.img){ delete p.img; save(); $("err").textContent="Speicher voll: Foto nicht gespeichert, Auftrag schon."; }
+  $("err").textContent=""; if(ocrImg) p.img=ocrImg; ocrImg=null; S.pos.push(p); if(!save()&&p.img){ delete p.img; save(); $("err").textContent="Speicher voll: Foto nicht gespeichert, Auftrag schon."; }
   ["brutto"].forEach(i=>$(i).value=""); render(); nextScanItem(); $("brutto").focus();
 });
 $("tb").addEventListener("click",e=>{const s=e.target.closest(".st"); if(s){const p=S.pos[+s.dataset.p]; p.paid=!p.paid; save(); render(); return;} const b=e.target.closest(".del"); if(!b)return; S.pos.splice(+b.dataset.i,1); save(); render();});
@@ -308,8 +309,8 @@ $("tbm").addEventListener("click",e=>{
 /* Kamera: Foto aufnehmen, Text auf dem Gerät erkennen, Foto beim Auftrag speichern */
 let ocrImg=null;
 $("scan").hidden=false;
-$("scanmsg").textContent="Foto vom Auftrag machen. Betrag, Datum und Produkt werden wenn möglich erkannt, das Foto wird beim Auftrag gespeichert. Felder bitte prüfen.";
-document.querySelector(".scanbtn").textContent="Auftrag fotografieren";
+$("scanmsg").textContent="Mitarbeiter (und Messe) oben eintragen, dann Aufträge fotografieren. Du kannst mehrere nacheinander aufnehmen oder aus den Fotos auswählen. Jeder Auftrag wird automatisch erfasst.";
+document.querySelector(".scanbtn").textContent="Aufträge fotografieren";
 function nextScanItem(){ ocrImg=null; $("scanitems").hidden=true; $("scanitems").innerHTML=""; }
 function shrink(file,max,q){ return new Promise((res,rej)=>{ const u=URL.createObjectURL(file); const im=new Image(); im.onload=()=>{ const k=Math.min(1,max/Math.max(im.width,im.height)); const c=document.createElement("canvas"); c.width=Math.round(im.width*k); c.height=Math.round(im.height*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(u); res(c.toDataURL("image/jpeg",q)); }; im.onerror=rej; im.src=u; }); }
 function loadScript(src){ return new Promise((res,rej)=>{ const sc=document.createElement("script"); sc.src=src; sc.onload=res; sc.onerror=rej; document.head.appendChild(sc); }); }
@@ -325,27 +326,44 @@ function parseText(t){
   if(/matratz/i.test(t)) out.lief="Anna Matratzen"; else if(/whirlpool|spa\b/i.test(t)) out.lief="Whirlpool"; else if(/grill|bbq|barbecue/i.test(t)) out.lief="BBQ";
   return out;
 }
+let tessReady=null;
+async function ocr(file){
+  if(!window.Tesseract){ if(!tessReady) tessReady=loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"); await tessReady; }
+  const big=await shrink(file,1800,0.9); const r=await Tesseract.recognize(big,"deu"); return parseText(r.data.text||"");
+}
 $("scanfile").addEventListener("change",async e=>{
-  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const files=[...(e.target.files||[])]; e.target.value=""; if(!files.length) return;
   const btn=document.querySelector(".scanbtn"); btn.classList.add("busy");
-  try{ ocrImg=await shrink(f,700,0.6); }catch(err){ ocrImg=null; }
-  const box=$("scanitems"); box.hidden=false; box.innerHTML=ocrImg?`<img src="${ocrImg}" alt="Foto vom Auftrag" style="max-height:120px;border-radius:6px;border:1px solid var(--line)">`:"";
-  $("scanmsg").textContent="Text wird erkannt … (beim ersten Mal ca. 20 Sekunden, Internet nötig)";
-  try{
-    if(!window.Tesseract) await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
-    const big=await shrink(f,1800,0.9);
-    const r=await Tesseract.recognize(big,"deu");
-    const o=parseText(r.data.text||"");
-    if(o.kunde&&!$("kunde").value) $("kunde").value=o.kunde;
-    if(o.datum) $("datum").value=o.datum;
-    if(o.lief){ $("lief").value=o.lief; syncPs(); }
-    if(o.brutto) $("brutto").value=o.brutto;
-    preview();
-    const found=[o.brutto&&"Betrag",o.datum&&"Datum",o.lief&&"Produkt",o.kunde&&"Kunde"].filter(Boolean);
-    $("scanmsg").textContent=found.length?`Erkannt: ${found.join(", ")}. Bitte prüfen, Rest ergänzen und „Position hinzufügen“.`:"Kein Text sicher erkannt. Bitte Felder von Hand ausfüllen, das Foto wird trotzdem gespeichert.";
-  }catch(err){
-    $("scanmsg").textContent="Texterkennung ging nicht (Internet?). Bitte Felder von Hand ausfüllen, das Foto wird trotzdem gespeichert.";
-  }finally{ btn.classList.remove("busy"); e.target.value=""; }
+  // Mitarbeiter: aus dem Formular, sonst vom letzten Auftrag
+  let ma=["ma1","ma2","ma3","ma4"].map(i=>$(i).value.trim()).filter(Boolean);
+  if(!ma.length){ const last=[...S.pos].reverse().find(p=>!p.ex); ma=last?last.ma.slice():[]; }
+  const messe=$("messe").value.trim(), land=$("land").value||"Schweiz";
+  let ok=0, check=0;
+  for(let i=0;i<files.length;i++){
+    $("scanmsg").textContent=`Auftrag ${i+1} von ${files.length} wird gelesen … (beim ersten Mal ca. 20 Sek., Internet nötig)`;
+    let img=null,o={};
+    try{ img=await shrink(files[i],700,0.6); }catch(err){}
+    try{ o=await ocr(files[i]); }catch(err){ o={}; }
+    const l=o.lief||$("lief").value.trim()||"Anna Matratzen";
+    const p={d:o.datum||new Date().toISOString().slice(0,10),f:"",paid:false,k:o.kunde||`Auftrag (Foto ${i+1})`,m:messe,l,land,
+      b:o.brutto||0,ps:S.lieferanten[l]??25,ma:ma.length?ma:["?"],img};
+    p.check=!(o.brutto&&o.kunde&&ma.length);
+    if(p.check) check++; else ok++;
+    S.pos.push(p);
+    if(!save()&&p.img){ delete p.img; save(); }
+    render();
+  }
+  btn.classList.remove("busy");
+  $("scanmsg").textContent=`${files.length} Auftrag/Aufträge erfasst.`+(check?` ${check} davon mit „prüfen“ markiert: antippen, ergänzen, nochmals hinzufügen.`:" Alles erkannt.")+" Für weitere Aufträge einfach wieder fotografieren.";
+});
+$("tb").addEventListener("click",e=>{
+  const c=e.target.closest(".chk2"); if(!c) return; const i=+c.dataset.i, p=S.pos[i]; if(!p) return;
+  $("kunde").value=p.k.startsWith("Auftrag (Foto")?"":p.k; $("messe").value=p.m||""; $("datum").value=p.d||""; $("faellig").value=p.f||""; $("paid").checked=!!p.paid;
+  $("lief").value=p.l; $("ps").value=p.ps; $("land").value=p.land; $("brutto").value=p.b||"";
+  ["ma1","ma2","ma3","ma4"].forEach((id,j)=>$(id).value=(p.ma[j]&&p.ma[j]!=="?")?p.ma[j]:"");
+  ocrImg=p.img||null; S.pos.splice(i,1); save(); render();
+  $("scanitems").hidden=!ocrImg; $("scanitems").innerHTML=ocrImg?`<img src="${ocrImg}" alt="Foto vom Auftrag" style="max-height:220px;max-width:100%;border-radius:6px;border:1px solid var(--line)">`:"";
+  $("scanmsg").textContent="Auftrag ist oben geladen. Mit dem Foto vergleichen, ergänzen und „Position hinzufügen“."; window.scrollTo({top:0,behavior:"smooth"});
 });
 $("tb").addEventListener("click",e=>{
   const b=e.target.closest(".ph"); if(!b) return; const p=S.pos[+b.dataset.i]; if(!p||!p.img) return;
